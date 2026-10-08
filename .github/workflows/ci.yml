@@ -40,7 +40,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Build, install, launch (4 tabs) and screenshot
+      - name: Build, install, launch (8 views) and screenshot
         run: bash Scripts/simulator-screenshots.sh
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
