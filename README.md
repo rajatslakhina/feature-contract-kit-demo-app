@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/rajatslakhina/feature-contract-kit-demo-app/actions/workflows/ci.yml/badge.svg)](https://github.com/rajatslakhina/feature-contract-kit-demo-app/actions/workflows/ci.yml)
 
-A SwiftUI app that consumes [**FeatureContracts**](https://github.com/rajatslakhina/feature-contract-kit) as a **remote Swift package, pinned to a release** (`upToNextMajorVersion` from `1.0.0`, never a branch or a local path). It runs the library against a realistic AI feature, a receipt extractor with three shipped contract revisions, and renders what a lead needs to see before shipping a schema change or rolling a server.
+A SwiftUI app that consumes [**FeatureContracts**](https://github.com/rajatslakhina/feature-contract-kit) as a **remote Swift package with a release requirement** (`upToNextMajorVersion` from `1.0.1`, never a branch or a local path; no `Package.resolved` is committed, so a fresh clone resolves the newest 1.x). It runs the library against a realistic AI feature, a receipt extractor with three shipped contract revisions, and renders what a lead needs to see before shipping a schema change or rolling a server.
 
 ## Why this matters
 
@@ -12,7 +12,17 @@ Sharing one Swift package between an iOS app and a Swift server gives you a sing
 
 ## Screenshots
 
-Screenshots are captured by this repo's CI on a GitHub-hosted iOS Simulator and committed to `Demo/Screenshots/`. This section is updated once the first run completes.
+These are real captures of the app running on an **iOS Simulator on a GitHub-hosted `macos-15` runner** (Xcode 16.4). CI builds the app, installs it, launches it once per screenshot, checks that the app's process is still running (a numeric PID) after each launch, takes the screenshot and commits it back. They were **not** taken on the author's Mac (see Verification).
+
+The first four show the top of each tab. The last four use the app's own launch filters (`-routes`, `-servers`) to bring below-the-fold content on screen, one scenario per shot: the rejected on-device answer, the `onDeviceOnly` fail-closed path, the v1.1 renegotiation, and the planned deploy that breaks 6% of installs.
+
+| Fleet | Router | Lint | Parity |
+|---|---|---|---|
+| ![Fleet tab: compatibility matrix](Demo/Screenshots/1-fleet-matrix.png) | ![Router tab: decision traces](Demo/Screenshots/2-router-traces.png) | ![Lint tab: evolution findings](Demo/Screenshots/3-evolution-lint.png) | ![Parity tab: cross-tier eval](Demo/Screenshots/4-parity-eval.png) |
+
+| Rejected on-device answer → server | `onDeviceOnly`: fails closed | App ahead: renegotiates to v1.1 | Planned `api-2026.11` retirement |
+|---|---|---|---|
+| ![On-device answer rejected by the schema, then answered by the server](Demo/Screenshots/5-router-rejected-answer.png) | ![The same invalid answer under an onDeviceOnly contract fails closed](Demo/Screenshots/6-router-on-device-only.png) | ![App at v1.2 resends at v1.1 and upgrades the answer](Demo/Screenshots/7-router-renegotiation.png) | ![Fleet matrix for the planned deploy that retires v1.0](Demo/Screenshots/8-fleet-retirement-plan.png) |
 
 ## What each tab shows
 
@@ -32,13 +42,19 @@ Screenshots are captured by this repo's CI on a GitHub-hosted iOS Simulator and 
 ## How to run it
 
 1. `git clone https://github.com/rajatslakhina/feature-contract-kit-demo-app.git`
-2. Open `Demo.xcodeproj` in Xcode 16 or later. Xcode resolves `feature-contract-kit` from GitHub at the pinned version.
+2. Open `Demo.xcodeproj` in Xcode 16 or later. Xcode resolves `feature-contract-kit` from GitHub: the newest 1.x at or above 1.0.1.
 3. Select the **Demo** scheme and any iPhone Simulator (iOS 17+).
-4. Build and run. To land on a specific tab, add `-tab router` (or `fleet`, `lint`, `parity`) under *Scheme → Run → Arguments*.
+4. Build and run. Optional launch arguments, under *Scheme → Run → Arguments*: `-tab router` (or `fleet`, `lint`, `parity`) lands on a tab; `-routes invalid,skew,private` shows only those router scenarios; `-servers api-2026.11` shows only matching server deploys.
 
 ## Verification
 
-Pending the first CI run. This section is written only after the run reports.
+What actually happened, stated separately:
+
+- **Resolves and compiles against the released package, on CI.** The `resolve-and-build` job in this repo's [Actions](https://github.com/rajatslakhina/feature-contract-kit-demo-app/actions) resolves `feature-contract-kit` from GitHub. On the run for the current requirement, it resolved **1.0.1** (revision `0cc9c34`). The job then builds the `Demo` scheme for `generic/platform=iOS Simulator` with Xcode 16.4.
+- **Ran on a Simulator, on CI.** The `run-on-simulator` job builds for a concrete iPhone simulator and installs the app. It then launches it eight times: `-tab fleet|router|lint|parity`, then `-routes invalid`, `-routes private`, `-routes skew` and `-servers api-2026.11`. After each launch it confirms the app's process is still running with a numeric PID, and it commits the eight screenshots above. Together the screenshots show every headline interaction this README describes.
+- **Not run on the author's Mac.** In this unattended run, computer-use access to Xcode and Simulator *was* granted. But Xcode already had an unrelated project open, so by rule nothing was touched. Nobody has tapped through the app by hand.
+- **The scenario logic is tested off-device too.** Everything the console shows comes from `ContractConsole` in the library, which is covered by the library's 61 tests on Linux and macOS. The scenario in `DemoApp.swift`, filters included, was also run headless on Linux against the library before pushing, and its output matches the numbers in this README.
+- **Independent review:** three rounds by fresh Opus reviewers. Every finding from the first two rounds was fixed and re-checked by the next round. The round-3 findings were fixed too (the public `RemoteAnswer` initializer, one scenario per screenshot, stale counts), but no fourth review was run, because the task caps review at three rounds. Details are in the [library README](https://github.com/rajatslakhina/feature-contract-kit#verification).
 
 ## License
 
