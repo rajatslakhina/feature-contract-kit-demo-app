@@ -14,15 +14,23 @@ import SwiftUI
 @main
 struct DemoApp: App {
     private let initialTab: ContractConsoleView.Tab
+    private let scenario: ConsoleScenario
 
     init() {
-        // `-tab router` on the command line lands on a tab (CI screenshots).
-        initialTab = UserDefaults.standard.string(forKey: "tab").flatMap(ContractConsoleView.Tab.init(rawValue:)) ?? .fleet
+        // Launch arguments used by the CI screenshots (and handy by hand):
+        //   -tab router                     land on a tab
+        //   -routes invalid,skew,private    show only these router scenarios
+        //   -servers api-2026.11            show only server deploys whose name starts with this
+        let defaults = UserDefaults.standard
+        initialTab = defaults.string(forKey: "tab").flatMap(ContractConsoleView.Tab.init(rawValue:)) ?? .fleet
+        let routes = defaults.string(forKey: "routes").map { Set($0.split(separator: ",").map(String.init)) }
+        let servers = defaults.string(forKey: "servers")
+        scenario = DemoScenario.make(routes: routes, serverPrefix: servers)
     }
 
     var body: some Scene {
         WindowGroup {
-            ContractConsoleView(scenario: DemoScenario.make(), initialTab: initialTab)
+            ContractConsoleView(scenario: scenario, initialTab: initialTab)
         }
     }
 }
@@ -147,7 +155,7 @@ enum ScriptedReceipts {
 enum DemoScenario {
     static let appShips = ContractVersion(1, 2)
 
-    static func make() -> ConsoleScenario {
+    static func make(routes routeFilter: Set<String>? = nil, serverPrefix: String? = nil) -> ConsoleScenario {
         let app = ReceiptContract.shared.asShipped(upTo: appShips)
         let policy = RoutingPolicy(onDeviceContextBudget: 1_024)
 
@@ -203,8 +211,8 @@ enum DemoScenario {
                 ServerBuild(name: "api-2026.09", shipped: ContractVersion(1, 1)),
                 ServerBuild(name: "api-2026.10", shipped: ContractVersion(1, 2)),
                 ServerBuild(name: "api-2026.11 (plan)", shipped: ContractVersion(1, 2), retiredBelow: ContractVersion(1, 1)),
-            ],
-            routes: routes,
+            ].filter { server in serverPrefix.map { server.name.hasPrefix($0) } ?? true },
+            routes: routeFilter.map { wanted in routes.filter { wanted.contains($0.id) } } ?? routes,
             golden: golden,
             parity: ParityEval(revision: ReceiptContract.v12,
                                rules: ["merchant": .normalizedText, "total": .tolerance(0.01), "confidence": .ignore],
